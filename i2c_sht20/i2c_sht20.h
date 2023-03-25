@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-03-24 19:10:08
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-03-24 20:56:17
+ * @LastEditTime: 2023-03-25 16:36:19
  * @Description: sht20驱动
  */
 #ifndef _I2C_SHT20_H_
@@ -13,10 +13,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <gpiod.h>
-#include <sys/ioctl.h>
-#include <linux/i2c-dev.h>
-#include <i2c/smbus.h>
 #include <errno.h>
+#include <string.h>
+#include <stdint.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+#include <linux/types.h>
+#include <linux/i2c.h>
+#include <linux/i2c-dev.h>
 
 #define I2C_BUS                     "/dev/i2c-1"    // 设备名
 #define SHT20_ADDR                  0x40            // i2c设备物理地址
@@ -32,10 +37,12 @@
 
 #define SHT20_MEASURING_DELAY 15                    // 上升沿延迟 15ms
 
-int sht20_init();
-void sht20_delay();
-int get_temp_hold(int _i2c_fd);                     // 使传感器设为温度触发保持模式，并获得温度数据
-int get_humi_hold(int _i2c_fd);                     // 使传感器设为湿度触发保持模式，并获得温度数据
+#define I2C_API_RDWR                                // 使用i2c用户空间驱动Read/Write API (linux/i2c-dev.h)
+// #define I2C_API_LOCTL                               // 使用i2c用户空间驱动LOCTL API (linux/i2c-dev.h)
 
+int sht2x_init(void);
+int sht2x_softReset(int fd);
+int sht2x_get_temp_humidity(int fd, float *temp, float *rh);
+int sht2x_get_serialNumber(int fd, uint8_t *serialNumber, int size);
 
 #endif
