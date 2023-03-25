@@ -2,14 +2,10 @@
  * @Author: RoxyKko
  * @Date: 2023-03-24 18:50:49
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-03-25 16:46:51
+ * @LastEditTime: 2023-03-25 22:52:01
  * @Description: sht20驱动
  */
 #include <i2c_sht20.h>
-
-struct gpiod_chip *chip = NULL;
-struct gpiod_line *sda_line = NULL;
-struct gpiod_line *scl_line = NULL;
 
 int main(int argc, char **argv)
 {
@@ -32,7 +28,7 @@ int main(int argc, char **argv)
     }
     printf("sht2x softReset success!\n");
 
-    if (sht2x_get_serialNumber(fd, serilaNumber, sizeof(serilaNumber)) < 0)
+    if (sht2x_get_serialNumber(fd, serilaNumber, 8) < 0)
     {
         printf("sht2x show serialNumber failed!\n");
         return 3;
@@ -59,11 +55,10 @@ int main(int argc, char **argv)
  */
 static inline void msleep(unsigned long ms)
 {
-    struct timespec cSleep; // 定义一个时间结构体
-    unsigned long ulTmp;    // 定义一个无符号长整型变量
-
-    cSleep.tv_nsec = ms / 1000; // 毫秒转换为纳秒
-    if (cSleep.tv_nsec == 0)
+    struct timespec cSleep;
+    unsigned long ulTmp;
+    cSleep.tv_sec = ms / 1000;
+    if (cSleep.tv_sec == 0)
     {
         ulTmp = ms * 10000;
         cSleep.tv_nsec = ulTmp * 100;
@@ -72,8 +67,7 @@ static inline void msleep(unsigned long ms)
     {
         cSleep.tv_nsec = 0;
     }
-
-    nanosleep(&cSleep, NULL); // 睡眠
+    nanosleep(&cSleep, 0);
 }
 
 /**
