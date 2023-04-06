@@ -2,16 +2,18 @@
  * @Author: RoxyKko
  * @Date: 2023-03-26 11:22:00
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-04 18:41:49
+ * @LastEditTime: 2023-04-06 17:27:03
  * @Description: iot项目-温湿度检测
  */
 #include "iot_main.h"
 
-#define I2C_BUS      "/dev/i2c-1"          // 设备名
-#define SHT20_ADDR   0x40                  // i2c设备物理地址
-#define Vision       1.0                   // 版本号
-#define lastEdit     "2023-03-27 22:33:51" // 最后编辑时间
-#define TMP_FILE     "/tmp/time.tmp"       // 获取时间
+#define I2C_BUS         "/dev/i2c-1"          // 设备总线地址
+#define SHT20_ADDR      0x40                  // i2c设备物理地址
+#define Vision          1.2                   // 版本号
+#define lastEdit        "2023-04-06 16:12:59" // 最后编辑时间
+#define TABLE_NAME      "RPI4B"               // 数据库表名
+#define DATABASE_NAME   "sht20"            // 数据库名
+
 
 
 static inline void print_usage(char *progname);
@@ -20,17 +22,22 @@ static inline void print_vision(char *progname);
 
 int main(int argc, char **argv)
 {
-    int opt;                             // 命令行选项
-    int i2c_fd;                          // i2c设备文件描述符
-    int daemon_run = 0;                  // 后台运行标志
-    char *progname = NULL;               // 程序名
-    int error = -1;                      // 报错提示符
-    float temp, rh;                      // 温度、湿度
-    char *servip = NULL;                 // 服务器ip
-    int port = 0;                        // 链接端口号
-    char buf[1024];                      // 数据暂存区
-    int socket_fd;                       // socket描述符
-    bool socket_connected = false;       // socket链接状态指示符
+    int         opt;                                  // 命令行选项
+    int         i2c_fd            =  -1;              // i2c设备文件描述符
+    int         daemon_run        =   0;              // 后台运行标志
+    char       *progname          =   NULL;           // 程序名
+    int         error             =  -1;              // 报错提示符
+    float       temp, rh          =   0;              // 温度、湿度
+    char       *servip            =   NULL;           // 服务器ip
+    int         port              =   0;              // 链接端口号
+    char        buf[1024];                            // 数据暂存区
+    int         socket_fd         =  -1;              // socket描述符
+    bool        socket_connected  =   false;          // socket链接状态指示符
+    packinfo_t  packinfo;                             // 数据包结构体
+    int	        interval          =   4;              // 采样间隔，默认设为4s
+    sqlite3     *db;                                   // 数据库句柄
+    static double 	current_time  =   0;              // 当前时间
+	static double 	latest_time   =   0;              // 上一次时间
 
     struct option long_options[] = {
         {"help", no_argument, NULL, 'h'},
@@ -45,8 +52,23 @@ int main(int argc, char **argv)
 
     // 获取程序名
     progname = argv[0];
-    // 打开日志
-    openlog(progname, LOG_CONS | LOG_PID, 0);
+    if( logger_init("./logger/running.log", LOG_LEVEL_INFO) < 0)
+    {
+        fprintf(stderr, "logger system init failed!\n");
+        return -1;
+    }
+
+    log_info("\n\n\n");
+    log_info("============================================================\n");
+    log_info("=                                                          =\n");
+    log_info("=                      IOT Project                         =\n");
+    log_info("=                                                          =\n");
+    log_info("=                      Version: %.2f                        =\n", Vision);
+    log_info("=                                                          =\n");
+    log_info("=                      LastEdit: %s                       =\n", lastEdit);
+    log_info("=                                                          =\n");
+    log_info("============================================================\n");
+
 
     // 命令行选项解析
     while ((opt = getopt_long(argc, argv, "hvtHsbp:i:", long_options, NULL)) != -1)
@@ -83,6 +105,7 @@ int main(int argc, char **argv)
             port = atoi(optarg);
             break;
         default:
+            log_error("Invalid argument\n");
             break;
         }
     }
@@ -97,6 +120,7 @@ int main(int argc, char **argv)
     // 后台运行
     if (daemon_run)
     {
+        log_info("daemon run!\n");
         daemon(0, 0);
     }
 
@@ -104,18 +128,38 @@ int main(int argc, char **argv)
     i2c_fd = sht2x_init();
     if (i2c_fd < 0)
     {
+        log_error("sht2x initialize failed!\n");
         printf("sht2x initialize failed!\n");
-        return 1;
+        return -1;
     }
-    printf("sht2x initialize success!\n");
+    log_info("sht2x initialize success!\n");
 
     // sht20软件复位
     if (sht2x_softReset(i2c_fd) < 0)
     {
+        log_error("sht2x softReset failed!\n");
         printf("sht2x softReset failed!\n");
-        return 2;
+        return -2;
     }
-    printf("sht2x softReset success!\n");
+    log_info("sht2x softReset success!\n");
+
+    // 安装信号处理函数
+    signal(SIGINT, SIG_IGN);
+
+    // 初始化数据库
+    if(database_init(DATABASE_NAME, &db) < 0)
+    {
+        log_error("database init failed!\n");
+        printf("database init failed!\n");
+        return -3;
+    }
+
+    // 若数据库中不存在表，则创建表
+    if(database_create_table(TABLE_NAME, &db) < 0)
+    {
+        database_close(DATABASE_NAME, &db);
+        return -4;
+    }
 
     while (1)
     {
@@ -179,6 +223,8 @@ static inline void print_usage(char *progname)
     printf(" -v[vision ] Display prog vision\n");
 
     printf("\nExample: %s -b -p 8900 -i 127.0.0.1\n", progname);
+
+    log_error("A required parameter is missing, the program exits");
     return;
 }
 
@@ -191,6 +237,7 @@ static inline void print_usage(char *progname)
 static inline void print_vision(char *progname)
 {
     printf("Usage: %s [VISION] ...\n", progname);
-    printf(" %s 该程序的版本为： %f 最后更新日期为： %s\n", progname, Vision, lastEdit);
+    printf(" %s 该程序的版本为： %.2f 最后更新日期为： %s\n", progname, Vision, lastEdit);
+    log_debug("Print vision success, the program exits");
     return;
 }

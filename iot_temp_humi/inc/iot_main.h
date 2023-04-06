@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-04 17:06:27
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-04 17:43:10
+ * @LastEditTime: 2023-04-06 15:25:21
  * @Description: 
  */
 
@@ -21,8 +21,14 @@
 #include <stdint.h>
 #include <ctype.h>
 #include <syslog.h>
+#include <signal.h>
 
 #include "i2c_sht20.h"
 #include "socket_client.h"
+#include "sqlite3.h"
+#include "get_time.h"
+#include "logger.h"
+#include "database.h"
+#include "packinfo.h"
 
 # endif
