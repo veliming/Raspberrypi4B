@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-05 20:54:52
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-06 14:34:09
+ * @LastEditTime: 2023-04-06 17:13:47
  * @Description: 数据库sqlite的使用
  */
 
@@ -15,7 +15,7 @@
  * @param {sqlite3} *db 数据库指针
  * @return {int} 0为正常执行，非0则出现错误
  */
-int database_init(char *dbname, sqlite3 *db)
+int database_init(char *dbname, sqlite3 **db)
 {
     
     int     rv          = -1;
@@ -28,11 +28,11 @@ int database_init(char *dbname, sqlite3 *db)
     }
 
     memset(dbname_buf, 0, sizeof(dbname_buf));
-    sprintf(dbname_buf, "../database/%s.db", dbname);
-    rv = sqlite3_open(dbname_buf, &db); // 打开数据表文件，若不存在则创建
+    sprintf(dbname_buf, "%s.db", dbname);
+    rv = sqlite3_open(dbname_buf, db); // 打开数据表文件
     if (rv)
     {
-        log_error("Can't open database: %s\n", sqlite3_errmsg(db));
+        log_error("Can't open database: %s\n", sqlite3_errmsg(*db));
         return -2;
     }
     else
@@ -49,7 +49,7 @@ int database_init(char *dbname, sqlite3 *db)
  * @param {sqlite3} *db 数据库指针
  * @return {int}
  */
-int database_close(char *dbname, sqlite3 *db)
+int database_close(char *dbname, sqlite3 **db)
 {
     int     rv          = -1;
 
@@ -59,20 +59,20 @@ int database_close(char *dbname, sqlite3 *db)
         return -1;
     }
 
-    rv = sqlite3_close(db);
+    rv = sqlite3_close(*db);
     while (rv == SQLITE_BUSY)
     {
         // sqlite3_next_stmt() 返回一个指向当前连接中的下一个预处理语句的指针。
         rv = SQLITE_OK;
         sqlite3_stmt *pStmt;
-        pStmt = sqlite3_next_stmt(db, 0);
+        pStmt = sqlite3_next_stmt(*db, 0);
 
         if (pStmt != NULL)
         {
             rv = sqlite3_finalize(pStmt);
             if (rv == SQLITE_OK)
             {
-                rv = sqlite3_close(db);
+                rv = sqlite3_close(*db);
             }
         }
     }
@@ -88,7 +88,7 @@ int database_close(char *dbname, sqlite3 *db)
  * @param {sqlite3} *db  数据库指针
  * @return {*}
  */
-int database_create_table(char *dbname, sqlite3 *db)
+int database_create_table(char *dbname, sqlite3 **db)
 {
     char    sql[128]    = {0};
     int     rv          = -1;
@@ -101,17 +101,13 @@ int database_create_table(char *dbname, sqlite3 *db)
     }
 
     memset(sql, 0, sizeof(sql));
-    sprintf(sql, "CREATE TABLE if not exists %s ( \
-        SN          CHAR(10),\
-        DATIME      CHAR(50),\
-        TEMP        CHAR(10),\
-        HUMI        CHAR(10));",
+    sprintf(sql, "CREATE TABLE if not exists %s(SN CHAR(10),DATIME CHAR(50),TEMP CHAR(15), HUMI CHAR(15));",
             dbname);
 
-    rv = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
+    rv = sqlite3_exec(*db, sql, 0, 0, &zErrMsg);
     if (rv != SQLITE_OK)
     {
-        log_error("Sqlite_create_table:%s\n", zErrMsg);
+        log_error("Sqlite_create_table error:%s\n", zErrMsg);
         sqlite3_free(zErrMsg);
         return -2;
     }
@@ -128,7 +124,7 @@ int database_create_table(char *dbname, sqlite3 *db)
  * @param {packinfo_t} pack_info    数据结构体
  * @return {int} 0为正常执行，非0则出现错误
  */
-int database_insert_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
+int database_insert_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
 {
     char    sql[512]    = {0};
     int     rv          = -1;
@@ -145,10 +141,10 @@ int database_insert_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
             dbname, pack_info->devid, pack_info->time, pack_info->temp, pack_info->humi);
     log_debug("data insert sql: %s\n", sql);
 
-    rv = sqlite3_exec(db, sql, NULL, 0, &zErrMsg);
+    rv = sqlite3_exec(*db, sql, 0, 0, &zErrMsg);
     if (rv != SQLITE_OK)
     {
-        log_error("Sqlite_insert_data:%s\n", zErrMsg);
+        log_error("Sqlite_insert_data error:%s\n", zErrMsg);
         sqlite3_free(zErrMsg);
         return -2;
     }
@@ -166,7 +162,7 @@ int database_insert_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
  * @param {packinfo_t} pack_info 数据结构体
  * @return {int} 返回剩余行数，负数则出现错误
  */
-int database_select_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
+int database_select_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
 {
     char    sql[128]    = {0};
     int     rv          = -1;
@@ -183,10 +179,10 @@ int database_select_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
     memset(sql, 0, sizeof(sql));
     sprintf(sql, "SELECT * FROM %s LIMIT 1;", dbname);          // 选择第一条数据
 
-    rv = sqlite3_get_table(db, sql, &dbResult, &nRow, &nColumn, &zErrMsg);
+    rv = sqlite3_get_table(*db, sql, &dbResult, &nRow, &nColumn, &zErrMsg);
     if (rv != SQLITE_OK)
     {
-        log_error("Sqlite_select_data:%s\n", zErrMsg);
+        log_error("Sqlite_select_data error:%s\n", zErrMsg);
         sqlite3_free(zErrMsg);
         return -2;
     }
@@ -211,7 +207,7 @@ int database_select_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
  * @param {packinfo_t} pack_info 数据结构体
  * @return {int } 0为正常执行，非0则出现错误
  */
-int database_delete_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
+int database_delete_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
 {
     char    sql[128]    = {0};
     int     rv          = -1;
@@ -226,11 +222,11 @@ int database_delete_data(char *dbname, sqlite3 *db, packinfo_t *pack_info)
 
     memset(sql, 0, sizeof(sql));
     sprintf(sql, "DELETE FROM %s LIMIT 1;", dbname);          // 删除第一条数据
-    rv = sqlite3_exec(db, sql, 0, 0, &zErrMsg);
+    rv = sqlite3_exec(*db, sql, 0, 0, &zErrMsg);
 
     if(rv != SQLITE_OK)
     {
-        log_error("Sqlite_delete_data:%s\n", zErrMsg);
+        log_error("Sqlite_delete_data error:%s\n", zErrMsg);
         sqlite3_free(zErrMsg);
         return -2;
     }
