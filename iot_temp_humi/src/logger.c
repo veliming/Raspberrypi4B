@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-04 17:53:48
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-04 18:34:26
+ * @LastEditTime: 2023-04-06 16:08:01
  * @Description: 日志系统
  */
 
@@ -70,6 +70,7 @@ static void log_generic(const int level, const char *format, va_list args)
     time_t      time_now;
 
     vsprintf(buf, format, args);
+    time(&time_now);
     tm = localtime(&time_now);
 
     int res = fprintf(g_logger.fp, 
