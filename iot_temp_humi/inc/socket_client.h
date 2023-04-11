@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-04 17:37:02
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-04 17:39:44
+ * @LastEditTime: 2023-04-10 16:50:09
  * @Description: socket client 端代码
  */
 
@@ -20,10 +20,19 @@
 #include <unistd.h>		// for read/write/close
 #include <getopt.h>		// for getopt_long
 #include <stdlib.h>		// for atoi
+
+// #include <linux/tcp.h>
+#include <netinet/tcp.h>
 #include "iot_main.h"
+#include "packinfo.h"
+#include "logger.h"
+
 
 
 int socket_client_init(char *serv_ip, int port);
 
+int sendata(int sockfd, packinfo_t pack_info);
+
+int get_sock_status(int sockfd);
 
 #endif
