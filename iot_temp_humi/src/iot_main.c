@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-03-26 11:22:00
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-11 00:06:21
+ * @LastEditTime: 2023-04-11 15:47:27
  * @Description: iot项目-温湿度检测
  */
 #include "iot_main.h"
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
             strcpy(packinfo.time, datime);
             packinfo.temp = temp;
             packinfo.humi = rh;
-            log_info("packinfo: devid=%s, time=%s, temp=%.2f, humi=%.2f\n", packinfo.devid, packinfo.time, packinfo.temp, packinfo.humi);
+            log_debug("packinfo: devid=%s, time=%s, temp=%.2f, humi=%.2f\n", packinfo.devid, packinfo.time, packinfo.temp, packinfo.humi);
 
             // 获取socket状态
             if (get_sock_status(socket_fd) == 0)
@@ -212,9 +212,8 @@ int main(int argc, char **argv)
                     }
                     socket_connected = false;
                     close(socket_fd);
-                    continue;
+                    
                 }
-                log_info("socket client send success!\n");
             }
             else
             {
@@ -230,10 +229,9 @@ int main(int argc, char **argv)
             }
         }   // end if ((latest_time - current_time) >= interval)
 
-        if ((latest_time - get_sockstattime) >= socket_interval)
+        // 检查表是否为空
+        else if(database_check_data(TABLE_NAME, &db) > 0)
         {
-            get_sockstattime = get_time(datime);
-            
             // 获取socket状态
             if (get_sock_status(socket_fd) == 0)
             {
@@ -251,29 +249,30 @@ int main(int argc, char **argv)
                     socket_connected = false;
                 }
             }
-            // 若socket已连接，则检查表是否为空
+            // 若socket已连接，则发送数据表中的数据
             else
             {
-                // 检查表是否为空
-                if (database_check_data(TABLE_NAME, &db) > 0)
+                // 从表中第一个数据幅值给packinfo
+                if(database_select_data(TABLE_NAME, &db, &packinfo) < 0)
                 {
-                    // 从表中第一个数据幅值给packinfo
-                    database_select_data(TABLE_NAME, &db, &packinfo);
+                    log_error("database select data failed!\n");
+                    printf("database select data failed!\n");
+                    return -7;
+                }
 
-                    // 将温湿度数据发送给服务器
-                    if (sendata(socket_fd, packinfo) < 0)
-                    {
-                        // 发送失败，退出循环
-                        log_error("socket client send failed!\n");
-                        printf("socket client send failed!\n");
-                        socket_connected = false;
-                        close(socket_fd);
-                        
-                    }
+                // 将温湿度数据发送给服务器
+                if (sendata(socket_fd, packinfo) < 0)
+                {
+                    // 发送失败，退出循环
+                    log_error("socket client send failed!\n");
+                    printf("socket client send failed!\n");
+                    socket_connected = false;
+                    close(socket_fd);
                     
-                    log_info("socket client send success!\n");
-                    
-                    // 删除表中第一个的数据
+                }
+                else
+                {
+                    // 发送成功则删除表中第一个的数据
                     if(database_delete_data(TABLE_NAME, &db) == 0)
                     {
                         log_info("database delete data success!\n");
@@ -284,12 +283,10 @@ int main(int argc, char **argv)
                         printf("database delete data failed!\n");
                         return -7;
                     }
-                    
-                    
                 }
             }
 
-        }// end if((latest_time - get_sockstattime) >= socket_interval)
+        }// end else if(database_check_data(TABLE_NAME, &db) > 0)
 
     } // end while(!g_sigstop)
 }
