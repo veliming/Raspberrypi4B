@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-04 18:38:48
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-11 00:00:58
+ * @LastEditTime: 2023-04-11 23:06:14
  * @Description: socket相关函数
  */
 
@@ -74,7 +74,10 @@ int sendata(int sockfd, packinfo_t pack_info)
 
     if(sockfd < 0)
     {
-        log_error("The sendata() argument connfd incorrect!\n");
+        if(!connect_flag)
+        {
+            printf("The sendata() argument connfd incorrect!\n");
+        }
 		return -1;
     }
 
@@ -134,8 +137,8 @@ int get_sock_status(int sockfd)
             log_info("*************************************************************************\n\n");
             log_info("Socket[%d] is connected\n\n", sockfd);
             log_info("*************************************************************************\n\n");
-            connect_flag = 1;
         }
+        connect_flag = 1;
         return 1;
     }
     else
@@ -145,8 +148,8 @@ int get_sock_status(int sockfd)
             log_info("*************************************************************************\n\n");
             log_info("Socket[%d] is disconnected\n\n", sockfd);
             log_info("*************************************************************************\n\n");
-            connect_flag = 0;
         }
+        connect_flag = 0;
         return 0;
     }
 }
