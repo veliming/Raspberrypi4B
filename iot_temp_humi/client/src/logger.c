@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-04 17:53:48
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-06 16:08:01
+ * @LastEditTime: 2023-04-11 16:40:43
  * @Description: 日志系统
  */
 
@@ -47,8 +47,12 @@ int logger_init(char *filename, int loglevel)
         g_logger.fp         = fopen(filename, "a+");
         if( !g_logger.fp )
         {
-            fprintf(stderr, "open log file %s failed: %s\n", filename, strerror(errno));
-            return -1;
+            g_logger.fp         = fopen(filename, "w+");
+            if( !g_logger.fp )
+            {
+                fprintf(stderr, "open log file %s failed: %s\n", filename, strerror(errno));
+                return -1;
+            }
         }
     }
 

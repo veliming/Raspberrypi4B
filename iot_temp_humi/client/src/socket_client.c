@@ -140,12 +140,12 @@ int get_sock_status(int sockfd)
     }
     else
     {
-        if(connect_flag == 0)
+        if(connect_flag == 1)
         {
             log_info("*************************************************************************\n\n");
             log_info("Socket[%d] is disconnected\n\n", sockfd);
             log_info("*************************************************************************\n\n");
-            connect_flag = 1;
+            connect_flag = 0;
         }
         return 0;
     }
