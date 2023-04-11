@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-03-26 11:22:00
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-11 15:47:27
+ * @LastEditTime: 2023-04-11 21:19:28
  * @Description: iot项目-温湿度检测
  */
 #include "iot_main.h"
@@ -212,7 +212,6 @@ int main(int argc, char **argv)
                     }
                     socket_connected = false;
                     close(socket_fd);
-                    
                 }
             }
             else
@@ -227,67 +226,71 @@ int main(int argc, char **argv)
                 log_info("database insert data success!\n");
                 close(socket_fd);
             }
-        }   // end if ((latest_time - current_time) >= interval)
+        } // end if ((latest_time - current_time) >= interval)
 
-        // 检查表是否为空
-        else if(database_check_data(TABLE_NAME, &db) > 0)
+        else if ((latest_time - get_sockstattime) >= socket_interval)
         {
-            // 获取socket状态
-            if (get_sock_status(socket_fd) == 0)
-            {
-                socket_connected = false;
-            }
+            // 获取socket状态的时间
+            get_sockstattime = get_time(datime);
 
-            // 若socket未连接，则连接socket
-            if (!socket_connected)
+            // 检查表是否为空
+            if (database_check_data(TABLE_NAME, &db) > 0)
             {
-                socket_fd = socket_client_init(servip, port);
-                socket_connected = true;
-                if (socket_fd < 0)
+                // 获取socket状态
+                if (get_sock_status(socket_fd) == 0)
                 {
-                    close(socket_fd);
                     socket_connected = false;
                 }
-            }
-            // 若socket已连接，则发送数据表中的数据
-            else
-            {
-                // 从表中第一个数据幅值给packinfo
-                if(database_select_data(TABLE_NAME, &db, &packinfo) < 0)
-                {
-                    log_error("database select data failed!\n");
-                    printf("database select data failed!\n");
-                    return -7;
-                }
 
-                // 将温湿度数据发送给服务器
-                if (sendata(socket_fd, packinfo) < 0)
+                // 若socket未连接，则连接socket
+                if (!socket_connected)
                 {
-                    // 发送失败，退出循环
-                    log_error("socket client send failed!\n");
-                    printf("socket client send failed!\n");
-                    socket_connected = false;
-                    close(socket_fd);
-                    
+                    socket_fd = socket_client_init(servip, port);
+                    socket_connected = true;
+                    if (socket_fd < 0)
+                    {
+                        close(socket_fd);
+                        socket_connected = false;
+                    }
                 }
+                // 若socket已连接，则发送数据表中的数据
                 else
                 {
-                    // 发送成功则删除表中第一个的数据
-                    if(database_delete_data(TABLE_NAME, &db) == 0)
+                    // 从表中第一个数据幅值给packinfo
+                    if (database_select_data(TABLE_NAME, &db, &packinfo) < 0)
                     {
-                        log_info("database delete data success!\n");
+                        log_error("database select data failed!\n");
+                        printf("database select data failed!\n");
+                        return -7;
+                    }
+
+                    // 将温湿度数据发送给服务器
+                    if (sendata(socket_fd, packinfo) < 0)
+                    {
+                        // 发送失败，退出循环
+                        log_error("socket client send failed!\n");
+                        printf("socket client send failed!\n");
+                        socket_connected = false;
+                        close(socket_fd);
                     }
                     else
                     {
-                        log_error("database delete data failed!\n");
-                        printf("database delete data failed!\n");
-                        return -7;
+                        // 发送成功则删除表中第一个的数据
+                        if (database_delete_data(TABLE_NAME, &db) == 0)
+                        {
+                            log_info("database delete data success!\n");
+                        }
+                        else
+                        {
+                            log_error("database delete data failed!\n");
+                            printf("database delete data failed!\n");
+                            return -7;
+                        }
                     }
                 }
-            }
 
-        }// end else if(database_check_data(TABLE_NAME, &db) > 0)
-
+            } // end else if(database_check_data(TABLE_NAME, &db) > 0)
+        }
     } // end while(!g_sigstop)
 }
 
