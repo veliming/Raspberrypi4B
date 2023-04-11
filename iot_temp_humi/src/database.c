@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-05 20:54:52
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-06 17:13:47
+ * @LastEditTime: 2023-04-10 23:57:16
  * @Description: 数据库sqlite的使用
  */
 
@@ -204,24 +204,23 @@ int database_select_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
  * @description:  删除数据库中第一条数据
  * @param {char} *dbname database文件名
  * @param {sqlite3} *db 数据库指针
- * @param {packinfo_t} pack_info 数据结构体
  * @return {int } 0为正常执行，非0则出现错误
  */
-int database_delete_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
+int database_delete_data(char *dbname, sqlite3 **db)
 {
     char    sql[128]    = {0};
     int     rv          = -1;
     char   *zErrMsg     = 0;
 
 
-    if((dbname == NULL) || (db == NULL) || (pack_info == NULL))
+    if((dbname == NULL) || (db == NULL))
     {
         log_error("The sqlite_delete_data() argument incorrect!\n");
         return -1;
     }
 
     memset(sql, 0, sizeof(sql));
-    sprintf(sql, "DELETE FROM %s LIMIT 1;", dbname);          // 删除第一条数据
+    sprintf(sql, "DELETE FROM %s WHERE rowid IN (SELECT rowid FROM %s LIMIT 1);", dbname ,dbname);          // 删除第一条数据
     rv = sqlite3_exec(*db, sql, 0, 0, &zErrMsg);
 
     if(rv != SQLITE_OK)
@@ -233,4 +232,32 @@ int database_delete_data(char *dbname, sqlite3 **db, packinfo_t *pack_info)
 
     log_info("Delete first data successfully!\n");
     return 0;
+}
+
+int database_check_data(char *dbname, sqlite3 **db)
+{
+    char    sql[128];
+    int     rv;
+    char   *zErrMsg = 0;
+    char  **dbResult;
+    int     nRow=0, nColumn=0;
+
+    if((dbname == NULL) || (db == NULL))
+    {
+        log_error("The sqlite_check_data() argument incorrect!\n");
+        return -1;
+    }
+
+    memset(sql, 0, sizeof(sql));
+    sprintf(sql, "SELECT * FROM %s LIMIT 1;", dbname);          // 选择第一条数据
+
+    rv = sqlite3_get_table(*db, sql, &dbResult, &nRow, &nColumn, &zErrMsg);
+    if (rv != SQLITE_OK)
+    {
+        log_error("Sqlite_check_data error:%s\n", zErrMsg);
+        sqlite3_free(zErrMsg);
+        return -2;
+    }
+
+    return nRow;
 }

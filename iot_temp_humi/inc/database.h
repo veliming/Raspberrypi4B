@@ -2,7 +2,7 @@
  * @Author: RoxyKko
  * @Date: 2023-04-05 19:24:03
  * @LastEditors: RoxyKko
- * @LastEditTime: 2023-04-05 22:58:36
+ * @LastEditTime: 2023-04-10 18:18:29
  * @Description: sqlite的使用
  */
 
@@ -22,7 +22,9 @@ int database_insert_data(char *dbname, sqlite3 **db, packinfo_t *pack_info);
 
 int database_select_data(char *dbname, sqlite3 **db, packinfo_t *pack_info);
 
-int database_delete_data(char *dbname, sqlite3 **db, packinfo_t *pack_info);
+int database_delete_data(char *dbname, sqlite3 **db);
+
+int database_check_data(char *dbname, sqlite3 **db);
 
 
 
